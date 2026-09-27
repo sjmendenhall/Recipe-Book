@@ -66,6 +66,24 @@
     transition:background .15s, transform .1s;
   }
   .addbtn:hover{background:var(--green-dark);}
+
+  .filterrow{
+    max-width:880px;margin:12px auto 0;display:flex;gap:10px;align-items:center;
+    flex-wrap:wrap;justify-content:space-between;
+  }
+  .chips{display:flex;gap:6px;flex-wrap:wrap;flex:1;}
+  .chip{
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.02em;
+    padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:var(--card);
+    color:var(--ink-soft);cursor:pointer;white-space:nowrap;transition:all .15s;
+  }
+  .chip:hover{border-color:var(--green);color:var(--green-dark);}
+  .chip.active{background:var(--green);border-color:var(--green);color:#fff;}
+  .sortselect{
+    font-family:'Inter';font-size:12.5px;color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;cursor:pointer;
+    flex-shrink:0;
+  }
   .addbtn:active{transform:scale(.97);}
 
   main{max-width:880px;margin:0 auto;padding:22px 20px 80px;position:relative;z-index:1;}
@@ -192,6 +210,7 @@
     .detail-title{font-size:24px;}
     .detail-desc, .detail-meta{color:#000 !important;}
     .steps li::before{border-color:#000;color:#000;}
+    .steps-heading{page-break-before:always;break-before:page;padding-top:20px;}
   }
 </style>
 </head>
@@ -208,6 +227,13 @@
       <input id="search" type="text" placeholder="Search by name or ingredient…" autocomplete="off">
     </div>
     <button class="addbtn" style="visibility:hidden;pointer-events:none;">+ Add</button>
+  </div>
+  <div class="filterrow">
+    <div id="categoryChips" class="chips"></div>
+    <select id="sortSelect" class="sortselect">
+      <option value="name">Sort: Name (A-Z)</option>
+      <option value="category">Sort: Category</option>
+    </select>
   </div>
 </header>
 
@@ -589,6 +615,7 @@ let currentId = null;
 const grid = document.getElementById('grid');
 const emptyEl = document.getElementById('empty');
 const countEl = document.getElementById('count');
+let activeCategory = 'All';
 
 function showToast(msg){
   const t = document.getElementById('toast');
@@ -611,14 +638,42 @@ function starsHtml(rating){
   return `<span class="stars-static">${s}</span><span class="rating-count">${rating.toFixed ? rating.toFixed(1) : rating}</span>`;
 }
 
+function renderCategoryChips(){
+  const cats = Array.from(new Set(Object.values(recipes).map(r => r.category || 'Recipe'))).sort();
+  const chipsEl = document.getElementById('categoryChips');
+  const allChips = ['All', ...cats];
+  chipsEl.innerHTML = allChips.map(c =>
+    `<button class="chip${c === activeCategory ? ' active' : ''}" data-cat="${escapeHtml(c)}">${escapeHtml(c)}</button>`
+  ).join('');
+  chipsEl.querySelectorAll('.chip').forEach(btn => {
+    btn.onclick = () => {
+      activeCategory = btn.getAttribute('data-cat');
+      render();
+    };
+  });
+}
+
 function render(){
   const q = document.getElementById('search').value.trim();
-  const list = Object.values(recipes).filter(r => matches(r, q)).sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  const sortBy = document.getElementById('sortSelect').value;
+  renderCategoryChips();
+  let list = Object.values(recipes).filter(r => matches(r, q));
+  if(activeCategory !== 'All'){
+    list = list.filter(r => (r.category || 'Recipe') === activeCategory);
+  }
+  if(sortBy === 'category'){
+    list.sort((a,b) => {
+      const catCompare = (a.category||'').localeCompare(b.category||'');
+      return catCompare !== 0 ? catCompare : (a.title||'').localeCompare(b.title||'');
+    });
+  } else {
+    list.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  }
   countEl.textContent = Object.keys(recipes).length + (Object.keys(recipes).length===1 ? ' recipe' : ' recipes');
   grid.innerHTML = '';
   if(list.length === 0){
     emptyEl.style.display = 'block';
-    emptyEl.querySelector('span') && (emptyEl.querySelector('span').textContent = q ? 'No matches — try a different search.' : 'Add your first recipe to start the collection.');
+    emptyEl.querySelector('span') && (emptyEl.querySelector('span').textContent = (q || activeCategory !== 'All') ? 'No matches — try a different search or filter.' : 'Add your first recipe to start the collection.');
     return;
   }
   emptyEl.style.display = 'none';
@@ -660,7 +715,7 @@ function openDetail(id){
     </div>
     <p class="section-label">Ingredients</p>
     <ul class="ingredients">${(r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('')}</ul>
-    <p class="section-label">Steps</p>
+    <p class="section-label steps-heading">Steps</p>
     <ol class="steps">${(r.steps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
     ${r.notes ? `<p class="section-label" style="margin-top:24px;">Notes</p><p style="font-size:14.5px;line-height:1.6;color:var(--ink-soft);">${escapeHtml(r.notes)}</p>` : ''}
   `;
@@ -672,6 +727,7 @@ function closeDetail(){
 }
 
 document.getElementById('search').addEventListener('input', render);
+document.getElementById('sortSelect').addEventListener('change', render);
 
 render();
 </script>
