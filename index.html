@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Recipe Box</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F1E7;
+    --card:#FFFDF8;
+    --ink:#2B2620;
+    --ink-soft:#7A7161;
+    --green:#4B6043;
+    --green-dark:#364631;
+    --mustard:#C6952C;
+    --rust:#A9502E;
+    --line:#E4D9C2;
+    --shadow: 0 1px 2px rgba(43,38,32,0.06), 0 6px 16px rgba(43,38,32,0.07);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+  ::selection{background:var(--mustard);color:#fff;}
+
+  /* subtle paper texture */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
+    background-image: radial-gradient(rgba(43,38,32,0.035) 1px, transparent 1px);
+    background-size: 3px 3px;
+    z-index:0;
+  }
+
+  header{
+    position:sticky;top:0;z-index:20;
+    background:var(--paper);
+    padding:22px 20px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  .titlebar{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    max-width:880px;margin:0 auto;
+  }
+  h1{
+    font-family:'Fraunces',serif;font-weight:600;font-size:28px;letter-spacing:-0.01em;margin:0;
+  }
+  h1 .accent{font-style:italic;font-weight:500;color:var(--green);}
+  .count{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);white-space:nowrap;}
+
+  .searchrow{
+    max-width:880px;margin:14px auto 0;display:flex;gap:10px;
+  }
+  .searchbox{
+    flex:1;position:relative;
+  }
+  .searchbox input{
+    width:100%;padding:11px 14px 11px 36px;border-radius:10px;border:1px solid var(--line);
+    background:var(--card);font-family:'Inter';font-size:15px;color:var(--ink);
+    outline:none;transition:border-color .15s;
+  }
+  .searchbox input:focus{border-color:var(--green);}
+  .searchbox svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);opacity:.45;}
+  .addbtn{
+    background:var(--green);color:#fff;border:none;border-radius:10px;padding:0 18px;
+    font-family:'Inter';font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap;
+    transition:background .15s, transform .1s;
+  }
+  .addbtn:hover{background:var(--green-dark);}
+  .addbtn:active{transform:scale(.97);}
+
+  main{max-width:880px;margin:0 auto;padding:22px 20px 80px;position:relative;z-index:1;}
+
+  .empty{
+    text-align:center;padding:60px 20px;color:var(--ink-soft);
+  }
+  .empty svg{opacity:.35;margin-bottom:10px;}
+  .empty p{font-family:'Fraunces',serif;font-style:italic;font-size:18px;margin:6px 0 4px;}
+
+  .grid{
+    display:grid;grid-template-columns:1fr;gap:14px;
+  }
+  @media(min-width:640px){ .grid{grid-template-columns:1fr 1fr;} }
+
+  .card{
+    background:var(--card);border-radius:4px 4px 10px 10px;border:1px solid var(--line);
+    box-shadow:var(--shadow);cursor:pointer;overflow:hidden;
+    transition:transform .12s, box-shadow .12s;position:relative;
+  }
+  .card:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(43,38,32,0.08), 0 10px 22px rgba(43,38,32,0.1);}
+  .card:active{transform:translateY(0);}
+  .tab{
+    display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;
+    text-transform:uppercase;color:#fff;background:var(--green);padding:4px 10px;border-radius:0 0 6px 0;
+  }
+  .card-body{padding:14px 16px 16px;}
+  .card h3{font-family:'Fraunces',serif;font-weight:600;font-size:19px;margin:8px 0 4px;line-height:1.25;}
+  .card p.desc{font-size:13.5px;color:var(--ink-soft);margin:0 0 10px;line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .meta{display:flex;gap:12px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);}
+  .meta span{display:flex;align-items:center;gap:4px;}
+
+  /* Detail overlay */
+  .overlay{
+    position:fixed;inset:0;background:var(--paper);z-index:50;overflow-y:auto;
+    transform:translateY(100%);transition:transform .28s cubic-bezier(.32,.72,0,1);
+  }
+  .overlay.open{transform:translateY(0);}
+  .overlay-inner{max-width:720px;margin:0 auto;padding:18px 20px 60px;}
+  .backrow{display:flex;justify-content:space-between;align-items:center;padding:6px 0 18px;position:sticky;top:0;background:var(--paper);z-index:5;}
+  .backbtn{
+    display:flex;align-items:center;gap:6px;background:none;border:none;color:var(--ink);
+    font-family:'Inter';font-weight:600;font-size:14px;cursor:pointer;padding:8px 4px;
+  }
+  .icon-btns{display:flex;gap:6px;}
+  .icon-btn{
+    background:var(--card);border:1px solid var(--line);border-radius:8px;width:34px;height:34px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);
+  }
+  .icon-btn:hover{color:var(--rust);border-color:var(--rust);}
+
+  .detail-tab{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:#fff;background:var(--green);padding:5px 12px;border-radius:6px;margin-bottom:12px;}
+  .detail-title{font-family:'Fraunces',serif;font-weight:600;font-size:32px;line-height:1.15;margin:0 0 8px;}
+  .detail-desc{color:var(--ink-soft);font-size:15px;line-height:1.55;margin:0 0 18px;}
+  .detail-meta{display:flex;gap:18px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-soft);
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:22px;}
+
+  .section-label{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--green-dark);margin:0 0 10px;font-weight:500;}
+  .ingredients{list-style:none;padding:0;margin:0 0 28px;}
+  .ingredients li{
+    padding:9px 0;border-bottom:1px dashed var(--line);font-size:14.5px;display:flex;gap:8px;
+  }
+  .ingredients li:last-child{border-bottom:none;}
+  .ingredients li::before{content:"—";color:var(--mustard);flex-shrink:0;}
+
+  .steps{list-style:none;padding:0;margin:0;counter-reset:step;}
+  .steps li{
+    counter-increment:step;padding:0 0 18px 40px;position:relative;font-size:15px;line-height:1.6;
+  }
+  .steps li::before{
+    content:counter(step);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;
+    background:var(--card);border:1.5px solid var(--green);color:var(--green-dark);
+    font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:500;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .steps li:not(:last-child)::after{
+    content:"";position:absolute;left:13px;top:28px;bottom:0;width:1px;background:var(--line);
+  }
+
+  .stars-static{display:inline-flex;gap:2px;color:var(--mustard);font-size:15px;letter-spacing:1px;}
+  .rating-row{display:flex;align-items:center;gap:8px;margin:6px 0 4px;}
+  .rating-count{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);}
+  .no-rating{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);font-style:italic;}
+
+  /* Form overlay */
+  .field{margin-bottom:16px;}
+  .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;text-transform:uppercase;
+    letter-spacing:.06em;color:var(--ink-soft);margin-bottom:6px;}
+  .field input, .field textarea{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-family:'Inter';
+    font-size:14.5px;color:var(--ink);background:var(--card);outline:none;resize:vertical;
+  }
+  .field input:focus, .field textarea:focus{border-color:var(--green);}
+  .field textarea{min-height:96px;line-height:1.5;font-family:'IBM Plex Mono',monospace;font-size:13.5px;}
+  .field .hint{font-size:11.5px;color:var(--ink-soft);margin-top:4px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .savebtn{
+    background:var(--green);color:#fff;border:none;border-radius:10px;padding:13px 22px;
+    font-family:'Inter';font-weight:600;font-size:15px;cursor:pointer;width:100%;margin-top:6px;
+  }
+  .savebtn:hover{background:var(--green-dark);}
+  .cancelbtn{
+    background:none;border:none;color:var(--ink-soft);font-family:'Inter';font-size:13.5px;
+    cursor:pointer;padding:10px;width:100%;text-align:center;
+  }
+
+  .toast{
+    position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:20px;font-size:13.5px;
+    font-family:'Inter';opacity:0;transition:all .25s;z-index:100;pointer-events:none;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media print{
+    body::before{display:none !important;}
+    header, main, .backbtn{display:none !important;}
+    .overlay{position:static !important;transform:none !important;background:#fff !important;}
+    .overlay-inner{max-width:100% !important;padding:0 !important;}
+    .backrow{position:static !important;padding:0 0 10px !important;justify-content:flex-end !important;}
+    .icon-btn{display:none !important;}
+    .detail-title{font-size:24px;}
+    .detail-desc, .detail-meta{color:#000 !important;}
+    .steps li::before{border-color:#000;color:#000;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titlebar">
+    <h1>Recipe <span class="accent">Box</span></h1>
+    <span class="count" id="count">0 recipes</span>
+  </div>
+  <div class="searchrow">
+    <div class="searchbox">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="Search by name or ingredient…" autocomplete="off">
+    </div>
+    <button class="addbtn" style="visibility:hidden;pointer-events:none;">+ Add</button>
+  </div>
+</header>
+
+<main>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" style="display:none">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <p>Nothing here yet</p>
+    <span>Add your first recipe to start the collection.</span>
+  </div>
+</main>
+
+<!-- DETAIL OVERLAY -->
+<div class="overlay" id="detailOverlay">
+  <div class="overlay-inner">
+    <div class="backrow">
+      <button class="backbtn" onclick="closeDetail()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        Recipe Box
+      </button>
+      <button class="icon-btn" onclick="window.print()" title="Print recipe">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+      </button>
+    </div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Recipes are baked directly into the page — no account, sign-in, or storage required.
+// To add a new recipe, add another object to this array and republish.
+const RECIPES = [
+  {
+    id: "kielbasa-skillet",
+    rating: null,
+    title: "Kielbasa, Bell Pepper & Rice Skillet",
+    category: "Mains",
+    desc: "One-pan smoky kielbasa with peppers, onion, and tomato-simmered rice.",
+    servings: "4",
+    time: "30 min",
+    ingredients: [
+      "1 lb kielbasa sausage, sliced into rounds",
+      "1 large bell pepper, diced",
+      "1 medium onion, diced",
+      "2 garlic cloves, minced",
+      "1 tbsp olive oil",
+      "1 cup long-grain white rice",
+      "1 cup chicken broth",
+      "8 oz tomato sauce",
+      "1 tsp smoked paprika",
+      "1/2 tsp salt",
+      "1/4 tsp black pepper",
+      "1/4 tsp cayenne pepper (optional)",
+      "2 tbsp chopped parsley, for garnish"
+    ],
+    steps: [
+      "Heat olive oil in a large skillet over medium-high heat. Add kielbasa and cook until browned, 4-5 minutes. Remove and set aside, leaving fat in the pan.",
+      "Add bell pepper, onion, and garlic to the skillet. Cook until softened, about 4 minutes.",
+      "Stir in rice, broth, tomato sauce, smoked paprika, salt, black pepper, and cayenne if using. Return the sausage to the pan and stir to combine.",
+      "Bring to a boil, then reduce heat to low, cover, and simmer until rice is tender and liquid is absorbed, about 20 minutes.",
+      "Remove from heat and let sit covered for 5 minutes. Fluff with a fork, top with parsley, and serve."
+    ],
+    notes: "Swap in andouille for extra spice. For the original non-tomato version, use 2 cups broth instead of 1 and skip the tomato sauce."
+  },
+  {
+    id: "tortilla-less-soup",
+    rating: null,
+    title: "Creamy Tortilla-less Soup",
+    category: "Soups",
+    desc: "A smoky, tomato-based soup blended smooth and topped with shredded chicken and avocado — inspired by classic Dallas tortilla soup.",
+    servings: "4",
+    time: "30 min",
+    ingredients: [
+      "2 tbsp extra virgin olive oil",
+      "2 cups diced yellow onion (2 medium)",
+      "4 cloves garlic, minced",
+      "1 tbsp seeded and diced jalapeño (1/2 medium)",
+      "1/2 tsp kosher salt, or more to taste",
+      "1/4 tsp black pepper, or more to taste",
+      "1 tbsp ground cumin",
+      "1 tsp ground coriander",
+      "1 tbsp tomato paste",
+      "4 cups low-sodium chicken broth",
+      "3 cups strained tomatoes",
+      "1 cup roasted mild green chiles (jarred, canned, or frozen)",
+      "1 bay leaf",
+      "1/4 cup unsweetened full-fat coconut milk",
+      "2 cups shredded chicken (rotisserie works)",
+      "1 avocado, sliced",
+      "1/4 cup fresh cilantro leaves",
+      "3 radishes, thinly sliced",
+      "1 lime, cut into wedges"
+    ],
+    steps: [
+      "Heat olive oil in a Dutch oven or large pot over medium heat. Add onion, garlic, jalapeño, salt, and pepper; cook, stirring, until tender, about 5 minutes.",
+      "Add cumin, coriander, and tomato paste; toast, stirring, until fragrant, 1-2 minutes.",
+      "Add broth, strained tomatoes, green chiles, and bay leaf. Bring to a boil, then reduce to a simmer and cook uncovered, stirring occasionally, for 20 minutes.",
+      "Discard the bay leaf and add the coconut milk. Blend with an immersion blender (or in a regular blender) until very smooth. Taste and add more salt if needed.",
+      "Place 1/2 cup shredded chicken in the bottom of each bowl. Ladle soup over the chicken. Garnish with avocado, cilantro, and radishes, and serve with a lime wedge."
+    ],
+    notes: "Gluten-free, dairy-free, paleo, Whole30, grain-free — a lighter, blended take on classic tortilla soup, minus the fried strips."
+  },
+  {
+    id: "classic-pot-roast",
+    rating: null,
+    title: "Classic Pot Roast",
+    category: "Mains",
+    desc: "Tender braised chuck roast with carrots and potatoes in a rich, thick wine-and-tomato gravy — the ultimate comfort food.",
+    servings: "6",
+    time: "4 hr 10 min",
+    ingredients: [
+      "4 lb chuck roast, tied",
+      "2 1/2 tsp fine sea salt",
+      "1/2 tsp black pepper",
+      "2 tbsp neutral oil (avocado or vegetable)",
+      "1/4 cup olive oil",
+      "2 large yellow onions, cut into large pieces",
+      "8 cloves garlic, chopped",
+      "3 tbsp tomato paste",
+      "1/4 cup all-purpose flour",
+      "1 1/2 cups dry red wine (cabernet, merlot, or chianti)",
+      "2 cups low-sodium beef stock, divided",
+      "2 large bay leaves",
+      "2 tbsp Worcestershire sauce",
+      "10 sprigs thyme, tied",
+      "1 1/2 lb red or small yellow potatoes, cut into large chunks",
+      "2 lb carrots, cut into 3-inch chunks",
+      "3 tbsp minced flat-leaf parsley, for garnish",
+      "Salt and pepper to taste"
+    ],
+    steps: [
+      "Preheat the oven to 325°F, with a rack positioned to fit a covered Dutch oven.",
+      "Pat the chuck roast dry and season with salt and pepper. Heat the Dutch oven over medium-high heat, add the neutral oil, and sear the roast on all sides until browned, about 15 minutes total. Remove to a plate.",
+      "Reduce heat to medium. Add the olive oil and onions to the same pot with a pinch of salt, and cook until translucent, about 10 minutes, scraping up the browned bits from searing as the onions release moisture. Add the garlic and cook 2 more minutes until fragrant.",
+      "Stir in the tomato paste and cook 3 minutes, then add the flour and stir until no white specks remain, about 1 minute.",
+      "Add the red wine, beef stock, thyme, bay leaves, and Worcestershire sauce. Bring to a boil, stirring to dissolve any remaining browned bits and break up flour clumps, and boil for 2 minutes.",
+      "Turn off the heat, return the roast to the pot, cover, and transfer to the oven.",
+      "After 1 1/2 hours, uncover, add the potatoes and carrots, re-cover, and return to the oven for another 2 to 2 1/2 hours, until the meat reaches 200-210°F internally and is fork-tender.",
+      "Transfer the roast and vegetables to a platter and tent with foil. Discard the bay leaves and thyme bundle.",
+      "De-grease the sauce (blot with paper towels or skim with a ladle). For a thicker sauce, blend some of the softened onions and potatoes into it with an immersion blender, or reduce it on the stove, or thicken with a flour-and-water slurry.",
+      "Shred or chunk the roast, mix with the sauce, discard any large bits of fat, season the vegetables with salt and pepper, garnish with parsley, and serve."
+    ],
+    notes: "Chuck roast works best for its fat content, but rump, top round, or bottom round are leaner alternatives. Tastes even better the next day — refrigerate covered and reheat in the oven. Leftovers keep about 3 days. Simplified to a single pot — no separate searing pan needed."
+  },
+  {
+    id: "classic-pot-roast-slow-cooker",
+    rating: null,
+    title: "Classic Pot Roast — Slow Cooker",
+    category: "Mains",
+    desc: "Same rich, wine-and-tomato braised pot roast, finished low and slow in a crock pot instead of the oven.",
+    servings: "6",
+    time: "30 min active + 8-9 hr low (or 4-5 hr high)",
+    ingredients: [
+      "4 lb chuck roast, tied",
+      "2 1/2 tsp fine sea salt",
+      "1/2 tsp black pepper",
+      "2 tbsp neutral oil (avocado or vegetable)",
+      "1/4 cup olive oil",
+      "2 large yellow onions, cut into large pieces",
+      "8 cloves garlic, chopped",
+      "3 tbsp tomato paste",
+      "1/4 cup all-purpose flour",
+      "1 1/2 cups dry red wine (cabernet, merlot, or chianti)",
+      "2 cups low-sodium beef stock, divided",
+      "2 large bay leaves",
+      "2 tbsp Worcestershire sauce",
+      "10 sprigs thyme, tied",
+      "1 1/2 lb red or small yellow potatoes, cut into large chunks",
+      "2 lb carrots, cut into 3-inch chunks",
+      "3 tbsp minced flat-leaf parsley, for garnish",
+      "Salt and pepper to taste"
+    ],
+    steps: [
+      "Pat the chuck roast dry and season with salt and pepper. Heat a large skillet over medium-high heat, add the neutral oil, and sear the roast on all sides until browned, about 15 minutes total. Transfer the roast to the slow cooker.",
+      "Reduce the skillet heat to medium. Add the olive oil and onions with a pinch of salt, and cook until translucent, about 8-10 minutes, scraping up the browned bits as they release moisture. Add the garlic and cook 2 more minutes until fragrant.",
+      "Stir in the tomato paste and cook 3 minutes, then add the flour and stir until no white specks remain, about 1 minute.",
+      "Add the red wine, beef stock, thyme, bay leaves, and Worcestershire sauce. Bring to a boil, stirring to dissolve the browned bits and break up flour clumps, and boil for 2 minutes.",
+      "Pour the sauce over the roast in the slow cooker. Arrange the potatoes and carrots around the roast.",
+      "Cover and cook on low for 8-9 hours, or high for 4-5 hours, until the meat is fork-tender and reaches 200-210°F internally.",
+      "Transfer the roast and vegetables to a platter and tent with foil. Discard the bay leaves and thyme bundle.",
+      "Pour the sauce into a saucepan. De-grease it (blot with paper towels or skim with a ladle). For a thicker sauce, simmer it on the stove to reduce, blend in some of the softened onions and potatoes, or thicken with a flour-and-water slurry.",
+      "Shred or chunk the roast, mix with the sauce, discard any large bits of fat, season the vegetables with salt and pepper, garnish with parsley, and serve."
+    ],
+    notes: "Chuck roast works best for its fat content, but rump, top round, or bottom round are leaner alternatives. The skillet sear before slow cooking keeps the flavor as rich as the oven version. Leftovers keep about 3 days."
+  },
+  {
+    id: "bread-machine-white-bread",
+    rating: null,
+    title: "Bread Machine White Bread",
+    category: "Bread",
+    desc: "A soft, buttery sandwich bread made entirely in a bread machine — minimal hands-on time required.",
+    servings: "12 slices",
+    time: "3 hr 5 min (5 min prep)",
+    ingredients: [
+      "— 1.5 lb loaf —",
+      "1 1/8 cups warm milk",
+      "5 tbsp unsalted butter, softened",
+      "3 cups bread flour (not all-purpose)",
+      "1 1/2 tbsp white granulated sugar",
+      "1 tsp salt",
+      "1 tsp bread machine yeast (instant yeast)",
+      "— 2 lb loaf —",
+      "1 1/2 cups warm milk",
+      "6 tbsp unsalted butter, softened",
+      "4 cups bread flour (not all-purpose)",
+      "2 tbsp white granulated sugar",
+      "1 1/2 tsp salt",
+      "1 1/2 tsp bread machine yeast (instant yeast)"
+    ],
+    steps: [
+      "Set your bread machine to the 1.5 lb or 2 lb loaf setting (matching your ingredient amounts), light crust color, and the basic/white bread cycle.",
+      "Soften the butter briefly in the microwave. Unplug the bread machine and remove the bread pan.",
+      "Pour the warm milk into the pan, then add the butter, flour, sugar, and salt. Add the yeast last, making sure it doesn't touch the liquid or the salt directly. Return the pan to the unplugged machine.",
+      "Plug in the machine, confirm the settings, and press start.",
+      "Once baking is done, unplug the machine and remove the pan using oven mitts — it will be hot.",
+      "Turn the bread out onto a cooling rack (oven mitts again). Remove the mixing paddle if it stayed in the loaf, or wait until fully cooled to remove it safely.",
+      "Optional: while the loaf is still hot, brush a thin layer of melted butter over the top for a softer, shinier crust.",
+      "Let the bread cool completely on the rack, 1-2 hours, before slicing."
+    ],
+    notes: "Use bread machine/instant yeast, not active dry yeast. Keep the salt away from the yeast when adding ingredients. Cold milk slows the yeast; warm it slightly first (100-110°F is ideal). Bread flour gives a fluffier rise than all-purpose."
+  },
+  {
+    id: "bread-machine-jalapeno-cheese-bread",
+    rating: null,
+    title: "Bread Machine Jalapeño Cheese Bread",
+    category: "Bread",
+    desc: "A moderately spicy 2 lb loaf made in the bread machine, with shredded cheese and fresh jalapeño folded right into the dough.",
+    servings: "12 slices",
+    time: "3 hr 10 min (10 min prep)",
+    ingredients: [
+      "1 1/8 cups warm milk",
+      "4 tbsp unsalted butter, softened (or substitute olive oil)",
+      "3 cups bread flour",
+      "1 cup shredded cheese (use a stronger-flavored cheese like sharp cheddar for best flavor)",
+      "1 jalapeño pepper, diced small (use 2 for a spicier loaf)",
+      "1 tbsp brown sugar",
+      "1 tsp Italian herbs (optional — skip if you don't want an herbed bread)",
+      "1 1/2 tsp salt",
+      "1 1/2 tsp bread machine yeast (instant yeast)"
+    ],
+    steps: [
+      "Set your bread machine to the 2 lb loaf setting, light crust color, and basic/white bread cycle.",
+      "Unplug the bread machine and remove the bread pan.",
+      "Pour the milk into the pan, then add the butter, flour, cheese, diced jalapeño, brown sugar, herbs, and salt. Add the yeast last, keeping it from touching the liquid until mixing starts.",
+      "Return the pan to the machine and plug it back in.",
+      "Confirm the settings (basic/white, 2 lb, light color) and press start.",
+      "Once done, unplug the machine and remove the pan with oven mitts — it will be hot.",
+      "Turn the bread out onto a cooling rack. Remove the mixing paddle if it stayed in the loaf (with oven mitts, or once fully cooled).",
+      "Let the bread cool completely, about 1-2 hours, before slicing."
+    ],
+    notes: "For less heat, remove the jalapeño seeds; for more, use two. Fresh jalapeño is recommended over pickled, which can add a vinegary taste — if using pickled, drain it well first. Dice cheese small (not large shreds) to avoid big melted holes in the loaf. Use bread machine/instant yeast, not active dry."
+  },
+  {
+    id: "crispy-ground-beef-broccoli-bowls",
+    rating: null,
+    title: "Crispy Ground Beef and Baby Broccoli Bowls",
+    category: "Mains",
+    desc: "Stir-fried baby broccoli and onion with crispy caramelized ground beef in an umami sauce, served over jasmine rice.",
+    servings: "4",
+    time: "30 min (10 min prep)",
+    ingredients: [
+      "1 tbsp olive oil",
+      "12 oz baby broccoli or broccolini, halved and cut into 1\" pieces",
+      "1 medium white onion, medium-diced",
+      "1 pinch salt and pepper",
+      "16 oz extra lean ground beef",
+      "2 bags (10 oz each) frozen steamed jasmine rice, or 4 cups steamed rice",
+      "2 green onions, thinly sliced (for serving)",
+      "— For the beef sauce —",
+      "1/4 cup hoisin sauce",
+      "2 tbsp coconut aminos",
+      "2 tbsp rice vinegar",
+      "2 tbsp sriracha",
+      "2 tbsp water"
+    ],
+    steps: [
+      "Heat the olive oil in a large skillet over medium-high heat. Add the broccoli and onion, season with a pinch of salt and pepper, and cook 5-6 minutes, stirring every 2 minutes or so, until the veggies soften and begin to brown in spots. Transfer to a bowl and set aside.",
+      "Add the beef to the pan and brown one side for 2-3 minutes before breaking apart and fully cooking. Mix the sauce ingredients together and add to the fully cooked ground beef. Stir to fully coat the beef, then leave untouched for 2-3 minutes until the sauce reduces and begins to caramelize on the bottom.",
+      "Add the veggies back to the pan and toss together with the beef.",
+      "Serve over the microwaved steamed rice with sliced green onions."
+    ],
+    notes: "Without rice, the stir-fry alone makes four 8 oz servings at 285 calories, 29g protein, 22g carbs, and 8g fat each. For more volume with minimal added calories, mix in 4 cups of riced cauliflower with the jasmine rice — adds only about 25 calories per serving. Full serving (8 oz stir-fry + 1 cup rice): 495 kcal, 68g carbs, 33g protein, 8g fat, 5g fiber."
+  },
+  {
+    id: "chicken-noodle-soup",
+    rating: null,
+    title: "Chicken Noodle Soup",
+    category: "Soups",
+    desc: "A rich, homemade chicken noodle soup made with rotisserie chicken and simple aromatics — no fancy techniques, just a comforting classic.",
+    servings: "8",
+    time: "40 min (20 min prep)",
+    ingredients: [
+      "1/2 tbsp butter",
+      "2 ribs celery, diced",
+      "3-4 large carrots, diced",
+      "1 clove garlic, minced",
+      "10 cups chicken stock or broth",
+      "1 tsp salt, to taste",
+      "1/2 tsp freshly ground black pepper, to taste",
+      "1/8 tsp dried rosemary (or more, to taste)",
+      "1/8 tsp dried thyme",
+      "1/8 tsp crushed red pepper flakes",
+      "4 cups dry egg noodles (or homemade, or another bite-size pasta like farfalle)",
+      "3 cups shredded rotisserie chicken",
+      "1 tsp better-than-bouillon chicken base or chicken bouillon granules (or more, as needed)"
+    ],
+    steps: [
+      "Add butter, celery, and carrots to a large stock pot over medium-high heat. Sauté for 3 minutes, then add garlic and cook 30 seconds more.",
+      "Add the chicken stock and season with rosemary, thyme, crushed red pepper, salt, and pepper. Taste and add a spoonful of bouillon base if the flavor needs more depth.",
+      "Bring the broth to a boil. Add the noodles and cook just until al dente — if using dry store-bought noodles, watch closely so they don't overcook, since they'll keep softening even off the heat.",
+      "Remove from heat as soon as the noodles are barely tender. Add the shredded chicken. Taste again and adjust seasoning as needed."
+    ],
+    notes: "For the best depth of flavor, homemade stock from a rotisserie chicken carcass is highly recommended over store-bought — if using store-bought broth, stirring in a little bouillon base helps close the gap. For a gluten-free version, use gluten-free noodles. Leftovers keep 4-5 days refrigerated, or freeze for 2-3 months (undercook noodles slightly before freezing so they don't turn mushy on reheating)."
+  },
+  {
+    id: "chicken-and-dumplings",
+    rating: null,
+    title: "Chicken and Dumplings",
+    category: "Soups",
+    desc: "A thick, creamy homemade chicken soup with vegetables, topped with light, fluffy drop dumplings that steam right on top.",
+    servings: "6",
+    time: "1 hr (20 min prep)",
+    ingredients: [
+      "1 tbsp olive oil",
+      "2 lbs bone-in, skinless chicken breast or thighs (or 2 large boneless/skinless breasts, ~1.25 lbs)",
+      "Salt and pepper, to taste",
+      "5 tbsp butter",
+      "1 small yellow onion, diced",
+      "1 cup carrots, diced",
+      "2 sticks celery, diced",
+      "3 cloves garlic, minced",
+      "1 tsp Worcestershire sauce",
+      "1 tsp hot sauce (Frank's recommended)",
+      "1/3 cup flour",
+      "4 1/2 cups chicken broth",
+      "1 chicken bouillon cube (optional)",
+      "1 1/2 cups half and half",
+      "3/4 cup frozen peas",
+      "— Seasonings —",
+      "1 tsp onion powder",
+      "1/2 tsp each: dried basil, parsley, thyme, rosemary, mustard powder",
+      "1/4 tsp ground sage",
+      "1/8 tsp pepper",
+      "— Dumplings —",
+      "2 cups cake flour (or all-purpose)",
+      "2 tsp baking powder",
+      "1/2 tsp baking soda",
+      "1 tsp salt",
+      "1/2 tsp garlic powder",
+      "2 tsp sugar",
+      "3/4 cup cold sour cream",
+      "1/4 cup cold milk",
+      "4 tbsp butter, melted"
+    ],
+    steps: [
+      "Season the chicken with salt and pepper on each side. Heat olive oil in a 4 1/2-quart soup pot over medium-high heat. Add the chicken and cook 3 minutes per side until lightly browned (center will still be raw). Let the chicken rest 10 minutes, then cut into bite-sized pieces, discarding bones.",
+      "Combine all the seasoning-blend spices in a small bowl and set aside.",
+      "Melt the butter in the same pot over medium heat, scraping up the browned bits from the bottom with a silicone spatula. Add the onion, carrots, and celery, and cook 5 minutes. Add the garlic, Worcestershire sauce, hot sauce, and the seasoning blend, and cook 1 more minute.",
+      "Add the flour and toss to coat everything. Cook 2 minutes, stirring continuously.",
+      "Add the chicken broth in small splashes, stirring continuously and scraping up any bits from the bottom as you go. Add the half and half the same way. Stir in the bouillon cube if using.",
+      "Add the frozen peas. Bring to a gentle boil, then let it simmer uncovered while you make the dumplings.",
+      "For the dumplings: combine the flour, baking powder, baking soda, salt, garlic powder, and sugar in a bowl. Add the milk, sour cream, and melted butter, and fold gently into a dough — don't overmix, or the dumplings will turn out dense.",
+      "Add the chicken back into the soup along with any resting juices. Stir to combine and reduce the heat to low.",
+      "Use a small cookie scoop to drop the dumpling dough evenly over the top of the soup. Spoon a little broth over each one.",
+      "Cover tightly and bring back up to a gentle simmer. Set a timer for 15 minutes and don't lift the lid during this time, so the dumplings can steam properly.",
+      "Check doneness with a toothpick inserted into a dumpling's center — if it comes out clean, they're done; if not, cover and simmer a few more minutes.",
+      "Garnish with parsley and serve."
+    ],
+    notes: "Bone-in chicken adds more flavor to the broth than boneless. You can substitute 3 cups of cooked/leftover chicken instead of searing fresh — just add it at the same point the seared chicken goes back in. The mustard powder and Worcestershire sauce are flavor enhancers that won't be tasted directly, so don't skip them. To reduce sodium, omit the bouillon cube and use unsalted butter and low-sodium broth. Soup keeps 3 days refrigerated or 3 months frozen (texture thins slightly on reheating); dumplings are best fresh but leftovers can be reheated on a baking sheet at 350°F for 5-7 minutes."
+  }
+];
+
+let recipes = {};
+RECIPES.forEach(r => recipes[r.id] = r);
+let currentId = null;
+
+const grid = document.getElementById('grid');
+const emptyEl = document.getElementById('empty');
+const countEl = document.getElementById('count');
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function matches(r, q){
+  if(!q) return true;
+  q = q.toLowerCase();
+  const hay = [r.title, r.category, r.desc, (r.ingredients||[]).join(' ')].join(' ').toLowerCase();
+  return hay.includes(q);
+}
+
+function starsHtml(rating){
+  if(!rating) return '<span class="no-rating">Not yet rated</span>';
+  let s = '';
+  for(let i=1;i<=5;i++){ s += i <= Math.round(rating) ? '★' : '☆'; }
+  return `<span class="stars-static">${s}</span><span class="rating-count">${rating.toFixed ? rating.toFixed(1) : rating}</span>`;
+}
+
+function render(){
+  const q = document.getElementById('search').value.trim();
+  const list = Object.values(recipes).filter(r => matches(r, q)).sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  countEl.textContent = Object.keys(recipes).length + (Object.keys(recipes).length===1 ? ' recipe' : ' recipes');
+  grid.innerHTML = '';
+  if(list.length === 0){
+    emptyEl.style.display = 'block';
+    emptyEl.querySelector('span') && (emptyEl.querySelector('span').textContent = q ? 'No matches — try a different search.' : 'Add your first recipe to start the collection.');
+    return;
+  }
+  emptyEl.style.display = 'none';
+  for(const r of list){
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.onclick = () => openDetail(r.id);
+    card.innerHTML = `
+      <span class="tab">${escapeHtml(r.category || 'Recipe')}</span>
+      <div class="card-body">
+        <h3>${escapeHtml(r.title)}</h3>
+        <div class="rating-row">${starsHtml(r.rating)}</div>
+        <p class="desc">${escapeHtml(r.desc || '')}</p>
+        <div class="meta">
+          ${r.time ? `<span>⏱ ${escapeHtml(r.time)}</span>` : ''}
+          ${r.servings ? `<span>◆ Serves ${escapeHtml(r.servings)}</span>` : ''}
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+
+function escapeHtml(s){
+  return (s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function openDetail(id){
+  currentId = id;
+  const r = recipes[id];
+  if(!r) return;
+  document.getElementById('detailContent').innerHTML = `
+    <span class="detail-tab">${escapeHtml(r.category || 'Recipe')}</span>
+    <h2 class="detail-title">${escapeHtml(r.title)}</h2>
+    <div class="rating-row">${starsHtml(r.rating)}</div>
+    ${r.desc ? `<p class="detail-desc">${escapeHtml(r.desc)}</p>` : ''}
+    <div class="detail-meta">
+      ${r.time ? `<span>⏱ ${escapeHtml(r.time)}</span>` : ''}
+      ${r.servings ? `<span>◆ Serves ${escapeHtml(r.servings)}</span>` : ''}
+    </div>
+    <p class="section-label">Ingredients</p>
+    <ul class="ingredients">${(r.ingredients||[]).map(i=>`<li>${escapeHtml(i)}</li>`).join('')}</ul>
+    <p class="section-label">Steps</p>
+    <ol class="steps">${(r.steps||[]).map(s=>`<li>${escapeHtml(s)}</li>`).join('')}</ol>
+    ${r.notes ? `<p class="section-label" style="margin-top:24px;">Notes</p><p style="font-size:14.5px;line-height:1.6;color:var(--ink-soft);">${escapeHtml(r.notes)}</p>` : ''}
+  `;
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetail(){
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+document.getElementById('search').addEventListener('input', render);
+
+render();
+</script>
+</body>
+</html>
